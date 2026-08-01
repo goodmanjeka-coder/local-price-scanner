@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Пошук цін — Кам'янець-Подільський</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:disabled { background: #999; }
+        .product {
+            background: white;
+            padding: 16px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .product .name {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .badge-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .shop-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .shop-badge.aurora { background: #f59e0b; }
+        .shop-badge.kopiyochka { background: #ea580c; }
+        .price {
+            font-size: 20px;
+            color: #16a34a;
+            font-weight: bold;
+        }
+        .loading { color: #666; text-align: center; padding: 20px; }
+        .error { color: #dc2626; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Пошук цін по магазинах</h1>
+    <div class="search-box">
+        <input type="text" id="query" placeholder="Наприклад: Persil, Fairy, Ariel..." />
+        <button id="searchBtn" onclick="search()">Знайти</button>
+    </div>
+    <div id="results"></div>
+
+    <script>
+        const input = document.getElementById('query');
+        const button = document.getElementById('searchBtn');
+        const results = document.getElementById('results');
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') search();
+        });
+
+        async function search() {
+            const query = input.value.trim();
+            if (!query) return;
+
+            button.disabled = true;
+            button.textContent = 'Шукаємо...';
+            results.innerHTML = '<div class="loading">Шукаємо найкращі ціни...</div>';
+
+            try {
+                const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (!data.best_deals || data.best_deals.length === 0) {
+                    results.innerHTML = '<div class="error">Нічого не знайдено 😕</div>';
+                    return;
+                }
+
+                results.innerHTML = data.best_deals.map(p => {
+                    const shopName = p.shop || '';
+                    const shopClass = shopName.toLowerCase().includes('аврор') ? 'aurora' : 'kopiyochka';
+                    return `
+                        <div class="product">
+                            <div class="name">${p.name || ''}</div>
+                            <div class="badge-row">
+                                <span class="shop-badge ${shopClass}">${shopName}</span>
+                                <span class="price">${p.price ? p.price + ' ₴' : ''}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                results.innerHTML = '<div class="error">Помилка запиту. Спробуйте ще раз.</div>';
+                console.error(err);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Знайти';
+            }
+        }
+    </script>
+</body>
+</html>
