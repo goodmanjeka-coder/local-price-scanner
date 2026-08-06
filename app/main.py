@@ -2,7 +2,7 @@ import concurrent.futures
 import sqlite3
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Query
-from parsers.eva_parser import parse_eva_soap
+# from parsers.eva_parser import parse_eva_soap
 from parsers.kopiyochka_parser import parse_kopiyochka
 from parsers.aurora_parser import parse_aurora
 from app.ai_search import ai_filter_top_10
