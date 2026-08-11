@@ -1,15 +1,20 @@
-import sqlite3
+import psycopg2
+import psycopg2.extras
+import os
 from datetime import datetime
 
-DB_PATH = "prices.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 def init_db():
     """Створює таблицю для збереження історії цін, якщо її немає"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS scraped_prices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             query TEXT,
             shop TEXT,
             name TEXT,
@@ -20,18 +25,19 @@ def init_db():
         )
     """)
     conn.commit()
+    cursor.close()
     conn.close()
 
 def save_products_to_db(query: str, products: list[dict]):
     """Зберігає знайдені товари в базу даних"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     cursor = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     for p in products:
         cursor.execute("""
             INSERT INTO scraped_prices (query, shop, name, price, is_promo, url, scraped_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             query,
             p.get("shop", "Невідомо"),
@@ -42,4 +48,5 @@ def save_products_to_db(query: str, products: list[dict]):
             now
         ))
     conn.commit()
+    cursor.close()
     conn.close()

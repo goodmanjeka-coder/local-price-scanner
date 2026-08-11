@@ -1,12 +1,12 @@
 import concurrent.futures
-import sqlite3
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Query
 # from parsers.eva_parser import parse_eva_soap
 from parsers.kopiyochka_parser import parse_kopiyochka
 from parsers.aurora_parser import parse_aurora
 from app.ai_search import ai_filter_top_10
-from app.database import init_db, save_products_to_db, DB_PATH
+from app.database import init_db, save_products_to_db, get_connection
+import psycopg2.extras
 
 app = FastAPI(title="Smart Price Scanner 2026")
 
@@ -23,26 +23,25 @@ def serve_frontend():
 @app.on_event("startup")
 def startup_event():
     init_db()
-    print("\n=== Базу даних SQLite успішно ініціалізовано! ===")
+    print("\n=== Базу даних PostgreSQL успішно ініціалізовано! ===")
 
 def get_cached_products(query: str, max_age_minutes: int = 30) -> list[dict]:
     """Шукає свіжі результати (не старші за max_age_minutes) в базі даних"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Отримуємо результати у вигляді словників
-    cursor = conn.cursor()
-    
-    # Визначаємо часовий ліміт для "свіжості" даних
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
     time_limit = (datetime.now() - timedelta(minutes=max_age_minutes)).strftime("%Y-%m-%d %H:%M:%S")
-    
+
     cursor.execute("""
         SELECT shop, name, price, is_promo, url as product_url 
         FROM scraped_prices 
-        WHERE LOWER(query) = LOWER(?) AND scraped_at >= ?
+        WHERE LOWER(query) = LOWER(%s) AND scraped_at >= %s
     """, (query.strip(), time_limit))
-    
+
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
-    
+
     return [dict(row) for row in rows]
 
 @app.get("/")
